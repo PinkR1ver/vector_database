@@ -6,6 +6,7 @@ import pandas as pd
 from rich.progress import track
 import tkinter as tk
 from tkinter import filedialog
+from sklearn.cluster import KMeans
 import cv2
 import matplotlib.pyplot as plt
 
@@ -68,7 +69,7 @@ class ImageEmbedding:
         return embed_vector / np.linalg.norm(embed_vector)
     
     
-    def imageVectorDatabaseBuild(self, image_folder_path, database_path='.'):
+    def imageVectorDatabaseBuild(self, image_folder_path, save_base_path='.', save_database_name='image_vector_database.json', save_cluster_name='cluster_info.json' ,cluster_num=10):
     
         database_size = 0
         
@@ -98,16 +99,45 @@ class ImageEmbedding:
                     database.loc[index, 'embedding_vector'] = embed_vector
                     index += 1
         
-        database.to_json(database_path + '/image_vector_database.json')
-        self.database_path = database_path + '/image_vector_database.json'
+        database.to_json(os.path.join(save_base_path, save_database_name))
+        self.database_path = os.path.join(save_base_path, save_database_name)
         self.database = database
+        self.clusterDatabase(save_base_path, save_cluster_name, cluster_num)
+        
+    def clusterDatabase(self, save_base_path='.', save_cluster_name='cluster_info.json' ,cluster_num=10):
+        
+        kmeans = KMeans(n_clusters=cluster_num)
+        kmeans.fit(list(self.database['embedding_vector']))
+        
+        cluster_centers = kmeans.cluster_centers_
+        cluster_labels = kmeans.labels_
+        cluster_index = [_ for _ in range(cluster_num)]
+        for i in range(cluster_num):
+            cluster_index[i] = np.where(cluster_labels == i)
+        
+        cluster = pd.DataFrame(columns=['cluster_center', 'cluster_index'])
+        cluster['cluster_center'] = cluster_centers.tolist()
+        cluster['cluster_index'] = cluster_index
+        cluster.to_json(os.path.join(save_base_path, save_cluster_name))
+        
+        self.cluster = cluster
     
-    def imageVectorDatabaseLoad(self, database_path):
+    def imageVectorDatabaseLoad(self, database_path, cluster_path=None):
         
         database = pd.read_json(database_path)
         self.database = database
         self.database_size = len(database)
         self.database_path = database_path
+        
+        if cluster_path is not None:
+            cluster = pd.read_json(cluster_path)
+            self.cluster = cluster
+            
+        else:
+            save_path = database_path.split('/')
+            save_path.pop()
+            save_path = '/'.join(save_path)
+            self.clusterDatabase(save_path, 'cluster_info.json', 10)
       
     
     def imageQuery(self):
@@ -131,9 +161,23 @@ class ImageEmbedding:
 
         
         query_vector = self.imageEmbedding(file_path)
-        for index, row in self.database.iterrows():
+        
+        for index, center in enumerate(self.cluster['cluster_center']):
             
-            distance = np.linalg.norm(query_vector - row['embedding_vector'])
+            distance = np.linalg.norm(query_vector - np.array(center))
+            
+            if smallest_distance == -1:
+                smallest_distance = distance
+                smallest_index = index
+            elif distance < smallest_distance:
+                smallest_distance = distance
+                smallest_index = index
+                
+        cluster_index = self.cluster.loc[smallest_index, 'cluster_index']
+        smallest_distance= -1
+        
+        for index in cluster_index[0]:
+            distance = np.linalg.norm(query_vector - self.database.loc[index, 'embedding_vector'])
             
             if smallest_distance == -1:
                 smallest_distance = distance
@@ -146,6 +190,5 @@ class ImageEmbedding:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         plt.imshow(image)
         plt.show()
-        input('Press Enter to Exit...')
         
     

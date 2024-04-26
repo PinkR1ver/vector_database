@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='vector_database',
-    version='0.0.1',
+    version='0.0.2',
     packages=['vector_database'],
     description='A tool to build vector database quickly',
     long_description=open('README.md').read(),
@@ -17,7 +17,9 @@ setup(
         'pandas',
         'torch',
         'torchvision',
-        'rich'
+        'rich',
+        'opencv-python',
+        'sklearn',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
