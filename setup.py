@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='vector_database',
-    version='0.1.0',
+    version='0.0.1',
     packages=['vector_database'],
     description='A tool to build vector database quickly',
     long_description=open('README.md').read(),
@@ -17,7 +17,6 @@ setup(
         'pandas',
         'torch',
         'torchvision',
-        'transformers',
         'rich'
     ],
     classifiers=[
